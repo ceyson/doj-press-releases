@@ -76,22 +76,40 @@ func_ngrams <- function(df_input, id_col, text_col, n_words) {
   return(df_ngrams)
 }
 
-df_unitest <- func_ngrams(df_narratives, id_article, narrative_lemmas, 1)
-df_bitest <- func_ngrams(df_narratives, id_article, narrative_lemmas, 2)
-df_tritest <- func_ngrams(df_narratives, id_article, narrative_lemmas, 3)
+### N-grams
+df_unigrams <- func_ngrams(df_narratives, id_article, narrative_lemmas, 1)
+df_bigrams <- func_ngrams(df_narratives, id_article, narrative_lemmas, 2)
+df_trigrams <- func_ngrams(df_narratives, id_article, narrative_lemmas, 3)
 
 
+### Parts of speech tagging
+
+### Download and retrieve model
+m_eng   <- udpipe::udpipe_download_model(language = "english-ewt")
+m_eng <- udpipe_load_model('english-ewt-ud-2.5-191206.udpipe')
+
+### Unigram POS tagging
+
+### Vector of narratives
+narrative_vec <- df_narratives %>%
+  # dplyr::filter(id_article %in% c(1:3)) %>%
+  dplyr::mutate(narrative_lemmas = gsub(' *\\b[[:alpha:]]{1}\\b *', ' ', narrative_lemmas)) %>%
+  dplyr::select(narrative_lemmas) %>% 
+  dplyr::pull() 
+
+### Part of Speech Tagging
+tictoc::tic('Execution')
+df_pos <- udpipe::udpipe_annotate(m_eng, narrative_vec) %>% dplyr::as_tibble()
+tictoc::toc() # Execution: 814.23 sec elapsed
+
+df_pos %>% View()
+
+df_ann <- df_pos %>%
+  dplyr::mutate(id_article = stringr::str_replace(doc_id,'doc','') %>% as.numeric()) %>%
+  dplyr::select(id_article, token, upos, xpos)
+
+df_ann %>% View()
+df_ann %>% vroom::vroom_write('./input/df_unigram_pos.csv', delim = ',')
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+df_ann %>% dplyr::filter(str_detect(upos,'NOUN')) %>% View()
